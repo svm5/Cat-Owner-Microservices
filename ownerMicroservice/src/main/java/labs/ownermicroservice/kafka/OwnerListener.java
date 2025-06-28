@@ -1,8 +1,6 @@
 package labs.ownermicroservice.kafka;
 
-import labs.CreateOwnerDTO;
-import labs.GetAllOwnersRequest;
-import labs.OwnerDTO;
+import labs.*;
 import labs.ownermicroservice.service.OwnerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -37,12 +35,18 @@ public class OwnerListener {
 
     @KafkaListener(topics = "get_owner_by_id_request", groupId = "group1", containerFactory = "requestListenerContainerFactory")
     @SendTo("get_owner_by_id_response")
-    public OwnerDTO receive(@Payload Long ownerId,
-                            @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTo,
-                            @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
+    public GetOwnerDTO receive(@Payload Long ownerId,
+                               @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTo,
+                               @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
         System.out.println("Want to get owner by id: " + ownerId);
         // ...
-        return ownerService.getOwner(ownerId);
+        try {
+            return new GetOwnerDTO(ownerService.getOwner(ownerId), "");
+        }
+        catch (OwnerNotFoundException e) {
+            System.out.println("Owner not found");
+            return new GetOwnerDTO(null, "Owner with id " + ownerId + " not found");
+        }
 //        return new OwnerDTO(1, "abc", LocalDate.of(2000, 10, 10), new ArrayList<>());
     }
 

@@ -174,8 +174,8 @@ public class KafkaProducerConfig {
 //    }
 //
     @Bean
-    public ReplyingKafkaTemplate<String, Long, OwnerDTO> replyingKafkaTemplate() {
-        ReplyingKafkaTemplate<String, Long, OwnerDTO> template = new ReplyingKafkaTemplate<>(
+    public ReplyingKafkaTemplate<String, Long, GetOwnerDTO> replyingKafkaTemplate() {
+        ReplyingKafkaTemplate<String, Long, GetOwnerDTO> template = new ReplyingKafkaTemplate<>(
                 requestProducerFactory(),
                 replyListenerContainer()
         );
@@ -215,7 +215,7 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public ConsumerFactory < String, OwnerDTO > replyConsumerFactory() {
+    public ConsumerFactory < String, GetOwnerDTO > replyConsumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
@@ -237,7 +237,7 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public KafkaMessageListenerContainer < String, OwnerDTO > replyListenerContainer() {
+    public KafkaMessageListenerContainer < String, GetOwnerDTO > replyListenerContainer() {
         ContainerProperties containerProperties = new ContainerProperties("get_owner_by_id_response");
         return new KafkaMessageListenerContainer < > (replyConsumerFactory(), containerProperties);
     }

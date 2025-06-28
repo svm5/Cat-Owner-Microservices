@@ -3,10 +3,7 @@ package labs.externalmicroservice.service;
 
 import labs.SignUpRequest;
 import labs.UserDTO;
-import labs.externalmicroservice.persistence.RoleRepository;
-import labs.externalmicroservice.persistence.RoleTypes;
-import labs.externalmicroservice.persistence.User;
-import labs.externalmicroservice.persistence.UserRepository;
+import labs.externalmicroservice.persistence.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -48,6 +45,7 @@ public class UserServiceImpl implements UserService {
     public boolean checkUserAuthenticated(long id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         System.out.println("()Auth" + authentication);
+//        return authentication != null;
         if (authentication == null) {
             return false;
         }
@@ -58,6 +56,7 @@ public class UserServiceImpl implements UserService {
     }
 
     public boolean checkUserAuthenticated(long id, Authentication authentication) {
+//        return authentication != null;
         if (authentication == null) {
             return false;
         }
@@ -67,6 +66,23 @@ public class UserServiceImpl implements UserService {
         return user.getId() == id;
     }
 
+//    public boolean checkAuthority(long id) {
+//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+//        if (authentication == null) {
+//            return false;
+//        }
+//
+//        String username = authentication.getName();
+//        User user = userRepository.findByUsername(username);
+//        return user.getId() == id;
+//    }
+//
+//    public boolean checkAuthority(long id, Authentication authentication) {
+//        String username = authentication.getName();
+//        User user = userRepository.findByUsername(username);
+//        return user.getId() == id;
+//    }
+
     public boolean checkAdmin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
@@ -75,7 +91,13 @@ public class UserServiceImpl implements UserService {
 
         String username = authentication.getName();
         User user = userRepository.findByUsername(username);
+        for (Role role : user.getRoles()) {
+            System.out.println("Role: " + role.getName());
+        }
 
-        return user.getRoles().contains(RoleTypes.ROLE_ADMIN);
+        System.out.println(user.getRoles().stream().map(a -> a.getName()).toList().contains(RoleTypes.ROLE_ADMIN));
+
+//        return user.getRoles().contains(RoleTypes.ROLE_ADMIN);
+        return user.getRoles().stream().map(a -> a.getName()).toList().contains(RoleTypes.ROLE_ADMIN);
     }
 }

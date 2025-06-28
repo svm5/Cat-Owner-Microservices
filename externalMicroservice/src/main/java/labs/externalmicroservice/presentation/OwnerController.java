@@ -41,7 +41,7 @@ public class OwnerController {
     private KafkaTemplate<String, Long> stringLongKafkaTemplate;
 
     @Autowired
-    private ReplyingKafkaTemplate < String, Long, OwnerDTO > requestReplyKafkaTemplate;
+    private ReplyingKafkaTemplate < String, Long, GetOwnerDTO > requestReplyKafkaTemplate;
 
     @Autowired
     private ReplyingKafkaTemplate<String, GetAllOwnersRequest, List<OwnerDTO>> getAllOwnersKafkaTemplate;
@@ -63,9 +63,14 @@ public class OwnerController {
         return CompletableFuture.supplyAsync(() -> {
             ProducerRecord<String, Long> record = new ProducerRecord<String, Long>("get_owner_by_id_request", id);
             record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_owner_by_id_response".getBytes()));
-            RequestReplyFuture<String, Long, OwnerDTO> sendAndReceive = requestReplyKafkaTemplate.sendAndReceive(record);
+            RequestReplyFuture<String, Long, GetOwnerDTO> sendAndReceive = requestReplyKafkaTemplate.sendAndReceive(record);
             try {
-                return new ResponseEntity<>(sendAndReceive.get(70, TimeUnit.SECONDS).value(), HttpStatus.OK);
+                GetOwnerDTO result = sendAndReceive.get(70, TimeUnit.SECONDS).value();
+                if (result.ownerDTO == null) {
+                    return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+                }
+
+                return new ResponseEntity<>(result.ownerDTO, HttpStatus.OK);
             } catch (Exception e) {
                 System.out.println(e.getMessage());
                 return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();

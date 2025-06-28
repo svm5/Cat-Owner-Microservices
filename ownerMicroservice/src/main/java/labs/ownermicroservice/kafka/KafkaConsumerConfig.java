@@ -2,6 +2,7 @@ package labs.ownermicroservice.kafka;
 
 import labs.CreateOwnerDTO;
 import labs.GetAllOwnersRequest;
+import labs.GetOwnerDTO;
 import labs.OwnerDTO;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -129,12 +130,12 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ProducerFactory< String, OwnerDTO > replyProducerFactory() {
+    public ProducerFactory< String, GetOwnerDTO > replyProducerFactory() {
         return new DefaultKafkaProducerFactory< >(producerConfigs());
     }
 
     @Bean
-    public KafkaTemplate < String, OwnerDTO > replyTemplate() {
+    public KafkaTemplate < String, GetOwnerDTO > replyTemplate() {
         return new KafkaTemplate < > (replyProducerFactory());
     }
 
