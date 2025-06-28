@@ -9,8 +9,8 @@ services:
       - POSTGRES_DB=$POSTGRES_DB
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
     volumes:
-      - ./data_users:/var/lib/postgresql/data
-      - ./init_users.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./docker/data_users:/var/lib/postgresql/data
+      - ./docker/init_users.sh:/docker-entrypoint-initdb.d/init.sh
   postgres_owners:
     image: postgres:14
     hostname: postgres
@@ -21,8 +21,8 @@ services:
       - POSTGRES_DB=$POSTGRES_DB
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
     volumes:
-      - ./data_owners:/var/lib/postgresql/data
-      - ./init_owners.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./docker/data_owners:/var/lib/postgresql/data
+      - ./docker/init_owners.sh:/docker-entrypoint-initdb.d/init.sh
   postgres_cats:
     image: postgres:14
     hostname: postgres
@@ -33,13 +33,13 @@ services:
       - POSTGRES_DB=$POSTGRES_DB
       - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
     volumes:
-      - ./data_cats:/var/lib/postgresql/data
-      - ./init_cats.sh:/docker-entrypoint-initdb.d/init.sh
+      - ./docker/data_cats:/var/lib/postgresql/data
+      - ./docker/init_cats.sh:/docker-entrypoint-initdb.d/init.sh
   flyway_users:
     image: flyway/flyway
     volumes:
-      - ./migrations/users:/flyway/sql
-      - ./migrations/scripts/run_user_migrations.sh:/flyway/run_user_migrations.sh
+      - ./docker/migrations/users:/flyway/sql
+      - ./docker/migrations/scripts/run_user_migrations.sh:/flyway/run_user_migrations.sh
     # && run_user_migrations.sh", "--", "flyway"
 #    entrypoint: [ "chmod", "700", "run_user_migrations.sh", "||", "run_user_migrations.sh", "--", "flyway" ]
 #    command: ["run_user_migrations.sh"]
@@ -54,8 +54,8 @@ services:
   flyway_owners:
     image: flyway/flyway
     volumes:
-      - ./migrations/owners:/flyway/sql
-      - ./migrations/scripts/run_owner_migrations.sh:/flyway/run_owner_migrations.sh
+      - ./docker/migrations/owners:/flyway/sql
+      - ./docker/migrations/scripts/run_owner_migrations.sh:/flyway/run_owner_migrations.sh
     entrypoint: [ "/flyway/run_owner_migrations.sh", "--", "flyway" ]
     environment:
       - USER=$POSTGRES_USER
@@ -67,8 +67,8 @@ services:
   flyway_cats:
     image: flyway/flyway
     volumes:
-      - ./migrations/cats:/flyway/sql
-      - ./migrations/scripts/run_cat_migrations.sh:/flyway/run_cat_migrations.sh
+      - ./docker/migrations/cats:/flyway/sql
+      - ./docker/migrations/scripts/run_cat_migrations.sh:/flyway/run_cat_migrations.sh
     entrypoint: ["/flyway/run_cat_migrations.sh", "--", "flyway"]
     environment:
       - USER=$POSTGRES_USER
@@ -93,6 +93,30 @@ services:
       - PGADMIN_DEFAULT_EMAIL=postgres@postgres.com
       - PGADMIN_CONFIG_SERVER_MODE=False
       - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+  external_service:
+    build:
+      context: externalMicroservice
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres_users
+  owner_service:
+    build:
+      context: ownerMicroservice
+      dockerfile: Dockerfile
+    ports:
+      - "8079:8079"
+    depends_on:
+      - postgres_owners
+  cat_service:
+    build:
+      context: catMicroservice
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres_cats
   zookeeper:
     image: confluentinc/cp-zookeeper:7.2.1
     hostname: zookeeper
