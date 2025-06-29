@@ -36,6 +36,9 @@ public class CatController {
     private KafkaTemplate<String, Long> stringLongKafkaTemplate;
 
     @Autowired
+    private ReplyingKafkaTemplate < String, Long, GetOwnerDTO > getOwnerKafkaTemplate;
+
+    @Autowired
     private ReplyingKafkaTemplate<String, CreateCatDTO, CatDTO> createCatReplyingKafkaTemplate;
 
     @Autowired
@@ -51,7 +54,26 @@ public class CatController {
     @Operation(summary = "Создание кота")
     @ResponseStatus(code = HttpStatus.CREATED)
     public CompletableFuture<ResponseEntity<CatDTO>> createCat(@RequestBody CreateCatDTO createCatDTO) {
+        if (!userService.checkUserAuthenticated(createCatDTO.owner_id) && !userService.checkAdmin()) {
+            return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.FORBIDDEN));
+        }
+
         return CompletableFuture.supplyAsync(() -> {
+            // check if owner exists
+            ProducerRecord<String, Long> recordOwner = new ProducerRecord<String, Long>("get_owner_by_id_request", createCatDTO.owner_id);
+            recordOwner.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_owner_by_id_response".getBytes()));
+            RequestReplyFuture<String, Long, GetOwnerDTO> sendAndReceiveOwner = getOwnerKafkaTemplate.sendAndReceive(recordOwner);
+            try {
+                GetOwnerDTO result = sendAndReceiveOwner.get(70, TimeUnit.SECONDS).value();
+                if (result.ownerDTO == null) {
+                    return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+                }
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+            }
+
+            // create cat
             ProducerRecord<String, CreateCatDTO> record = new ProducerRecord<String, CreateCatDTO>("create_cat_request", createCatDTO);
             record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "create_cat_response".getBytes()));
             RequestReplyFuture<String, CreateCatDTO, CatDTO> sendAndReceive = createCatReplyingKafkaTemplate.sendAndReceive(record);
