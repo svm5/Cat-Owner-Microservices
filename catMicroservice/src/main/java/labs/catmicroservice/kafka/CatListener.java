@@ -1,9 +1,6 @@
 package labs.catmicroservice.kafka;
 
-import labs.CatDTO;
-import labs.CatsFriendsRequest;
-import labs.CreateCatDTO;
-import labs.CreateOwnerDTO;
+import labs.*;
 import labs.catmicroservice.persistence.CatRepository;
 import labs.catmicroservice.service.CatService;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -41,10 +38,15 @@ public class CatListener {
     @KafkaListener(topics = "get_cat_request", groupId = "group1",
             containerFactory = "getCatRequestListenerContainerFactory")
     @SendTo
-    public CatDTO processCreateCat(Long id) {
+    public GetCatDTO processGetCat(Long id) {
         System.out.println("Want to get cat");
 
-        return catService.getCat(id);
+        try {
+            return new GetCatDTO(catService.getCat(id), "");
+        }
+        catch (CatNotFoundException e) {
+            return new GetCatDTO(null, e.getMessage());
+        }
     }
 
     @KafkaListener(topics = "make_friends", groupId = "group1",

@@ -100,4 +100,21 @@ public class UserServiceImpl implements UserService {
 //        return user.getRoles().contains(RoleTypes.ROLE_ADMIN);
         return user.getRoles().stream().map(a -> a.getName()).toList().contains(RoleTypes.ROLE_ADMIN);
     }
+
+    public boolean checkAdmin(Authentication authentication) {
+        if (authentication == null) {
+            return false;
+        }
+
+        String username = authentication.getName();
+        User user = userRepository.findByUsername(username);
+        for (Role role : user.getRoles()) {
+            System.out.println("Role: " + role.getName());
+        }
+
+        System.out.println(user.getRoles().stream().map(a -> a.getName()).toList().contains(RoleTypes.ROLE_ADMIN));
+
+//        return user.getRoles().contains(RoleTypes.ROLE_ADMIN);
+        return user.getRoles().stream().map(a -> a.getName()).toList().contains(RoleTypes.ROLE_ADMIN);
+    }
 }

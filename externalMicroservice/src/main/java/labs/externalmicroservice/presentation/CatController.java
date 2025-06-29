@@ -42,7 +42,7 @@ public class CatController {
     private ReplyingKafkaTemplate<String, CreateCatDTO, CatDTO> createCatReplyingKafkaTemplate;
 
     @Autowired
-    private ReplyingKafkaTemplate<String, Long, CatDTO> getCatReplyingKafkaTemplate;
+    private ReplyingKafkaTemplate<String, Long, GetCatDTO> getCatReplyingKafkaTemplate;
 
     @Autowired
     private KafkaTemplate<String, CatsFriendsRequest> catsFriendsRequestKafkaTemplate;
@@ -96,12 +96,21 @@ public class CatController {
             // устанавливаем топик для ответа в заголовке
             record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_cat_response".getBytes()));
             // отправляем запрос в топик Kafka и асинхронно получаем ответ в указанный топик для ответа
-            RequestReplyFuture<String, Long, CatDTO> sendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(record);
+            RequestReplyFuture<String, Long, GetCatDTO> sendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(record);
             try {
-                CatDTO catDTO = sendAndReceive.get(70, TimeUnit.SECONDS).value();
-                if (!(userService.checkUserAuthenticated(catDTO.ownerId, authentication) || userService.checkAdmin())) {
+                GetCatDTO getCatDTO = sendAndReceive.get(70, TimeUnit.SECONDS).value();
+                if (getCatDTO.catDTO == null) {
+                    if (userService.checkAdmin(authentication)) {
+                        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+                    }
+                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                }
+
+                CatDTO catDTO = getCatDTO.catDTO;
+                if (!(userService.checkUserAuthenticated(catDTO.ownerId, authentication)) && !userService.checkAdmin(authentication)) {
                     return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
                 }
+
                 return new ResponseEntity<>(catDTO, HttpStatus.OK);
             } catch (Exception e) {
                 System.out.println(e.getMessage());
@@ -114,10 +123,33 @@ public class CatController {
     @Operation(summary = "Удаление конкретного кота")
 //    @PreAuthorize("hasRole('ROLE_ADMIN') || @catOwnerChecker.check(#id)")
     public CompletableFuture<ResponseEntity<Object>> deleteCat(@PathVariable long id) {
-        if (!userService.checkAdmin()) {
-            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
-        }
+//        if (!userService.checkAdmin()) {
+//            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.FORBIDDEN).build());
+//        }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return CompletableFuture.supplyAsync(() -> {
+            // get cat and check owner
+            if (!userService.checkAdmin(authentication)) {
+                ProducerRecord<String, Long> record = new ProducerRecord<String, Long>("get_cat_request", id);
+                record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_cat_response".getBytes()));
+                RequestReplyFuture<String, Long, GetCatDTO> sendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(record);
+                try {
+                    GetCatDTO getCatDTO = sendAndReceive.get(70, TimeUnit.SECONDS).value();
+                    if (getCatDTO.catDTO == null) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+
+                    CatDTO catDTO = getCatDTO.catDTO;
+                    if (!userService.checkUserAuthenticated(catDTO.ownerId, authentication)) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+                }
+            }
+
+            // delete
             try {
                 SendResult<String, Long> result = stringLongKafkaTemplate.send("delete_cat_by_id", id).get();
                 return ResponseEntity.ok().build();

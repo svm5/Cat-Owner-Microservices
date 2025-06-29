@@ -296,7 +296,7 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public ConsumerFactory < String, CatDTO> getCatReplyConsumerFactory() {
+    public ConsumerFactory < String, GetCatDTO> getCatReplyConsumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
@@ -307,14 +307,14 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public KafkaMessageListenerContainer<String, CatDTO> getCatReplyListenerContainer() {
+    public KafkaMessageListenerContainer<String, GetCatDTO> getCatReplyListenerContainer() {
         ContainerProperties containerProperties = new ContainerProperties("get_cat_response");
-        return new KafkaMessageListenerContainer < > (createCatReplyConsumerFactory(), containerProperties);
+        return new KafkaMessageListenerContainer < > (getCatReplyConsumerFactory(), containerProperties);
     }
 
     @Bean
-    public ReplyingKafkaTemplate<String, Long, CatDTO> getCatReplyingKafkaTemplate() {
-        ReplyingKafkaTemplate<String, Long, CatDTO> template = new ReplyingKafkaTemplate<>(
+    public ReplyingKafkaTemplate<String, Long, GetCatDTO> getCatReplyingKafkaTemplate() {
+        ReplyingKafkaTemplate<String, Long, GetCatDTO> template = new ReplyingKafkaTemplate<>(
                 getCatRequestProducerFactory(),
                 getCatReplyListenerContainer()
         );

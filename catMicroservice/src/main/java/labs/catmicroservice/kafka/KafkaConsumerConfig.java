@@ -3,6 +3,7 @@ package labs.catmicroservice.kafka;
 import labs.CatDTO;
 import labs.CatsFriendsRequest;
 import labs.CreateCatDTO;
+import labs.GetCatDTO;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -91,12 +92,12 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ProducerFactory< String, CatDTO> getCatReplyProducerFactory() {
+    public ProducerFactory< String, GetCatDTO> getCatReplyProducerFactory() {
         return new DefaultKafkaProducerFactory< >(producerConfigs());
     }
 
     @Bean
-    public KafkaTemplate< String, CatDTO > getCatReplyTemplate() {
+    public KafkaTemplate< String, GetCatDTO > getCatReplyTemplate() {
         return new KafkaTemplate < > (getCatReplyProducerFactory());
     }
     //
