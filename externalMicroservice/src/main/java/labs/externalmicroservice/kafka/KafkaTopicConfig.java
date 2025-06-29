@@ -91,4 +91,14 @@ public class KafkaTopicConfig {
     NewTopic topic15() {
         return TopicBuilder.name("delete_cat_by_id").build();
     }
+
+    @Bean
+    NewTopic topic18() {
+        return TopicBuilder.name("get_all_cats_request").build();
+    }
+
+    @Bean
+    NewTopic topic19() {
+        return TopicBuilder.name("get_all_cats_response").build();
+    }
 }

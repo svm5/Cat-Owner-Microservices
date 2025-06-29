@@ -373,5 +373,38 @@ public class KafkaProducerConfig {
         return template;
     }
 
+    // all cats
+
+    @Bean
+    public ProducerFactory < String, GetAllCatsRequest> getAllCatsRequestProducerFactory() {
+        return new DefaultKafkaProducerFactory < > (producerConfigs());
+    }
+
+    @Bean
+    public ConsumerFactory < String, GetAllCatsResponse> getAllCatsReplyConsumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaMessageListenerContainer<String, GetAllCatsResponse> getAllCatsReplyListenerContainer() {
+        ContainerProperties containerProperties = new ContainerProperties("get_all_cats_response");
+        return new KafkaMessageListenerContainer < > (getAllCatsReplyConsumerFactory(), containerProperties);
+    }
+
+    @Bean
+    public ReplyingKafkaTemplate<String, GetAllCatsRequest, GetAllCatsResponse> getALlCatsReplyingKafkaTemplate() {
+        ReplyingKafkaTemplate<String, GetAllCatsRequest, GetAllCatsResponse> template = new ReplyingKafkaTemplate<>(
+                getAllCatsRequestProducerFactory(),
+                getAllCatsReplyListenerContainer()
+        );
+        return template;
+    }
+
     //
 }

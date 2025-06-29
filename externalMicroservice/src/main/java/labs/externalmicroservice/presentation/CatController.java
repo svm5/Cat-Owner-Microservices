@@ -8,6 +8,7 @@ import labs.externalmicroservice.service.UserService;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -19,7 +20,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -51,7 +54,58 @@ public class CatController {
     private ReplyingKafkaTemplate<String, CatsFriendsRequest, CatsFriendsResponse> friendsRequestReplyKafkaTemplate;
 
     @Autowired
+    private ReplyingKafkaTemplate<String, GetAllCatsRequest, GetAllCatsResponse> getAllCatsRequestReplyKafkaTemplate;
+
+    @Autowired
     private UserService userService;
+
+    @GetMapping
+    @Operation(summary = "Получение всех котов")
+    public CompletableFuture<ResponseEntity<List<CatDTO>>> getAllCats(
+            @RequestParam(name = "name", required = false) String name,
+            @RequestParam(name = "birthday", required = false) String birthday,
+            @RequestParam(name = "breed", required = false) String breed,
+            @RequestParam(name = "color", required = false) String color,
+            @RequestParam(name = "eyesColor", required = false) String eyesColor,
+            @RequestParam(name = "page", defaultValue = "0") String page,
+            @RequestParam(name = "size", defaultValue = "3") String size) {
+
+        CatCriteriaDTO.CatCriteriaDTOBuilder catCriteriaDTOBuilder = CatCriteriaDTO.builder()
+                .name(name)
+                .eyesColor(eyesColor)
+                .breed(breed);
+        if (birthday != null) {
+            catCriteriaDTOBuilder.birthday(LocalDate.parse(birthday));
+        }
+        if (color != null) {
+            catCriteriaDTOBuilder.color(CatColors.valueOf(color));
+        }
+
+        GetAllCatsRequest getAllCatsRequest = GetAllCatsRequest
+                .builder()
+                .catCriteriaDTO(catCriteriaDTOBuilder.build())
+                .page(Integer.parseInt(page))
+                .size(Integer.parseInt(size))
+                .build();
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return CompletableFuture.supplyAsync(() -> {
+            ProducerRecord<String, GetAllCatsRequest> record = new ProducerRecord<String, GetAllCatsRequest>("get_all_cats_request", getAllCatsRequest);
+            record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_all_cats_response".getBytes()))
+                    .add(new RecordHeader(KafkaHeaders.CORRELATION_ID, UUID.randomUUID().toString().getBytes()));
+            RequestReplyFuture<String, GetAllCatsRequest, GetAllCatsResponse> sendAndReceive = getAllCatsRequestReplyKafkaTemplate.sendAndReceive(record);
+            try {
+                List<CatDTO> result = sendAndReceive.get(70, TimeUnit.SECONDS).value().cats;
+                if (!userService.checkAdmin(authentication)) {
+                    result = result.stream().filter(a -> a.ownerId == userService.getId(authentication)).toList();
+                }
+                return new ResponseEntity<>(result, HttpStatus.OK);
+            } catch (Exception e) {
+                System.out.println("!!!Error " + e.getMessage());
+                return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+            }
+        });
+    }
 
     @PostMapping(consumes = {"application/json"})
     @Operation(summary = "Создание кота")

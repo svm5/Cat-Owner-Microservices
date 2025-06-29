@@ -19,6 +19,7 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -47,6 +48,24 @@ public class CatListener {
         catch (CatNotFoundException e) {
             return new GetCatDTO(null, e.getMessage());
         }
+    }
+
+    @KafkaListener(topics = "get_all_cats_request", groupId = "group1",
+            containerFactory = "getAllCatsRequestListenerContainerFactory")
+    @SendTo
+    public GetAllCatsResponse processGetAllCats(GetAllCatsRequest getAllCatsRequest) {
+        System.out.println("Want to get all cats");
+
+        List<CatDTO> page = catService.getCats(
+                getAllCatsRequest.catCriteriaDTO(),
+                getAllCatsRequest.page(),
+                getAllCatsRequest.size())
+                .stream()
+                .toList();
+
+        System.out.println("page" + page);
+
+        return new GetAllCatsResponse(page);
     }
 
     @KafkaListener(topics = "make_friends_request", groupId = "group1",

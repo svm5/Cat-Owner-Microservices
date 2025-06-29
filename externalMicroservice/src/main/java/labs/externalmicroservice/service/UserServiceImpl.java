@@ -66,6 +66,12 @@ public class UserServiceImpl implements UserService {
         return user.getId() == id;
     }
 
+    public long getId(Authentication authentication) {
+        String username = authentication.getName();
+        User user = userRepository.findByUsername(username);
+        return user.getId();
+    }
+
 //    public boolean checkAuthority(long id) {
 //        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 //        if (authentication == null) {

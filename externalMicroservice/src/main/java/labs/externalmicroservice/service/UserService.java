@@ -11,4 +11,5 @@ public interface UserService {
     boolean checkUserAuthenticated(long id, Authentication authentication);
     boolean checkAdmin();
     boolean checkAdmin(Authentication authentication);
+    long getId(Authentication authentication);
 }
