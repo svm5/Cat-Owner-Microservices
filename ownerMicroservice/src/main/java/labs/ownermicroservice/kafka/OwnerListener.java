@@ -64,7 +64,7 @@ public class OwnerListener {
 
     @KafkaListener(topics = "get_all_owners_request", groupId = "group1", containerFactory = "getAllOwnersRequestListenerContainerFactory")
     @SendTo
-    public Message<List<OwnerDTO>> processGetAllOwners(@Payload GetAllOwnersRequest getAllOwnersRequest,
+    public GetAllOwnersResponse processGetAllOwners(@Payload GetAllOwnersRequest getAllOwnersRequest,
                                                        @Header(KafkaHeaders.REPLY_TOPIC) byte[] replyTo,
                                                        @Header(KafkaHeaders.CORRELATION_ID) byte[] correlationId) {
         System.out.println("Want to get all owners");
@@ -74,11 +74,11 @@ public class OwnerListener {
                 getAllOwnersRequest.size()).stream().toList();
         System.out.println("page" + page);
 
-//        return page;
+        return new GetAllOwnersResponse(page);
 
-        return MessageBuilder
-                .withPayload(page)
-                .setHeader(KafkaHeaders.CORRELATION_ID, correlationId) // Возвращаем тот же ID
-                .build();
+//        return MessageBuilder
+//                .withPayload(page)
+//                .setHeader(KafkaHeaders.CORRELATION_ID, correlationId) // Возвращаем тот же ID
+//                .build();
     }
 }

@@ -226,7 +226,7 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public ConsumerFactory < String, List<OwnerDTO>> getAllOwnersReplyConsumerFactory() {
+    public ConsumerFactory < String, GetAllOwnersResponse> getAllOwnersReplyConsumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
@@ -243,14 +243,14 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public KafkaMessageListenerContainer<String, List<OwnerDTO>> getAllOwnersReplyListenerContainer() {
+    public KafkaMessageListenerContainer<String, GetAllOwnersResponse> getAllOwnersReplyListenerContainer() {
         ContainerProperties containerProperties = new ContainerProperties("get_all_owners_response");
         return new KafkaMessageListenerContainer < > (getAllOwnersReplyConsumerFactory(), containerProperties);
     }
 
     @Bean
-    public ReplyingKafkaTemplate<String, GetAllOwnersRequest, List<OwnerDTO>> getAllOwnersReplyingKafkaTemplate() {
-        ReplyingKafkaTemplate<String, GetAllOwnersRequest, List<OwnerDTO>> template = new ReplyingKafkaTemplate<>(
+    public ReplyingKafkaTemplate<String, GetAllOwnersRequest, GetAllOwnersResponse> getAllOwnersReplyingKafkaTemplate() {
+        ReplyingKafkaTemplate<String, GetAllOwnersRequest, GetAllOwnersResponse> template = new ReplyingKafkaTemplate<>(
                 getAllOwnersRequestProducerFactory(),
                 getAllOwnersReplyListenerContainer()
         );

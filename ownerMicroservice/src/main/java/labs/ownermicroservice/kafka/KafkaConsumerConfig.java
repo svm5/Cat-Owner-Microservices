@@ -1,9 +1,6 @@
 package labs.ownermicroservice.kafka;
 
-import labs.CreateOwnerDTO;
-import labs.GetAllOwnersRequest;
-import labs.GetOwnerDTO;
-import labs.OwnerDTO;
+import labs.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -151,12 +148,12 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ProducerFactory< String, List<OwnerDTO>> getAllOwnersReplyProducerFactory() {
+    public ProducerFactory< String, GetAllOwnersResponse> getAllOwnersReplyProducerFactory() {
         return new DefaultKafkaProducerFactory< >(producerConfigs());
     }
 
     @Bean
-    public KafkaTemplate < String, List<OwnerDTO> > getAllOwnersReplyTemplate() {
+    public KafkaTemplate < String, GetAllOwnersResponse> getAllOwnersReplyTemplate() {
         return new KafkaTemplate < > (getAllOwnersReplyProducerFactory());
     }
 }

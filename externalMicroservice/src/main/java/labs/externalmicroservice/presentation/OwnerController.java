@@ -44,7 +44,7 @@ public class OwnerController {
     private ReplyingKafkaTemplate < String, Long, GetOwnerDTO > requestReplyKafkaTemplate;
 
     @Autowired
-    private ReplyingKafkaTemplate<String, GetAllOwnersRequest, List<OwnerDTO>> getAllOwnersKafkaTemplate;
+    private ReplyingKafkaTemplate<String, GetAllOwnersRequest, GetAllOwnersResponse> getAllOwnersKafkaTemplate;
 
     @Autowired
     private UserService userService;
@@ -85,6 +85,10 @@ public class OwnerController {
             @RequestParam(name = "birthday", required = false) String birthday,
             @RequestParam(name = "page", defaultValue = "0") String page,
             @RequestParam(name = "size", defaultValue = "3") String size) {
+        if (!userService.checkAdmin()) {
+            return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.FORBIDDEN));
+        }
+
         OwnerCriteriaDTO.OwnerCriteriaDTOBuilder ownerCriteriaDTOBuilder = OwnerCriteriaDTO.builder().name(name);
         if (birthday != null) {
             ownerCriteriaDTOBuilder = ownerCriteriaDTOBuilder.birthday(LocalDate.parse(birthday));
@@ -101,9 +105,9 @@ public class OwnerController {
             ProducerRecord<String, GetAllOwnersRequest> record = new ProducerRecord<String, GetAllOwnersRequest>("get_all_owners_request", getAllOwnersRequest);
             record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_all_owners_response".getBytes()))
                             .add(new RecordHeader(KafkaHeaders.CORRELATION_ID, UUID.randomUUID().toString().getBytes()));
-            RequestReplyFuture<String, GetAllOwnersRequest, List<OwnerDTO>> sendAndReceive = getAllOwnersKafkaTemplate.sendAndReceive(record);
+            RequestReplyFuture<String, GetAllOwnersRequest, GetAllOwnersResponse> sendAndReceive = getAllOwnersKafkaTemplate.sendAndReceive(record);
             try {
-                return new ResponseEntity<>(sendAndReceive.get(30, TimeUnit.SECONDS).value(), HttpStatus.OK);
+                return new ResponseEntity<>(sendAndReceive.get(70, TimeUnit.SECONDS).value().owners, HttpStatus.OK);
             } catch (Exception e) {
                 System.out.println("!!!Error " + e.getMessage());
                 return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
