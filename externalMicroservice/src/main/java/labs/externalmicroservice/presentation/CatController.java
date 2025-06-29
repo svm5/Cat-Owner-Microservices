@@ -48,6 +48,9 @@ public class CatController {
     private KafkaTemplate<String, CatsFriendsRequest> catsFriendsRequestKafkaTemplate;
 
     @Autowired
+    private ReplyingKafkaTemplate<String, CatsFriendsRequest, CatsFriendsResponse> friendsRequestReplyKafkaTemplate;
+
+    @Autowired
     private UserService userService;
 
     @PostMapping(consumes = {"application/json"})
@@ -176,19 +179,117 @@ public class CatController {
     @PostMapping("/friends/make")
     @Operation(summary = "Подружить двух котов")
 //    @PreAuthorize("hasRole('ROLE_ADMIN') || @catFriendsRequestChecker.check(#firstCatId, #secondCatId)")
-    public void makeFriends(
+    public CompletableFuture<ResponseEntity<?>> makeFriends(
             @RequestParam(value = "firstCatId") Long firstCatId,
             @RequestParam(value = "secondCatId") Long secondCatId) {
 //        catService.makeFriends(firstCatId, secondCatId);
-        catsFriendsRequestKafkaTemplate.send("make_friends", new CatsFriendsRequest(firstCatId, secondCatId));
+//        catsFriendsRequestKafkaTemplate.send("make_friends", new CatsFriendsRequest(firstCatId, secondCatId));
+//        return ResponseEntity.status(HttpStatus.OK).build();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return CompletableFuture.supplyAsync(() -> {
+            // check if authenticated user is owner of at least one cats
+            if (!userService.checkAdmin(authentication)) {
+                ProducerRecord<String, Long> firstRecord = new ProducerRecord<String, Long>("get_cat_request", firstCatId);
+                firstRecord.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_cat_response".getBytes()));
+                RequestReplyFuture<String, Long, GetCatDTO> firstSendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(firstRecord);
+
+                ProducerRecord<String, Long> secondRecord = new ProducerRecord<String, Long>("get_cat_request", secondCatId);
+                secondRecord.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_cat_response".getBytes()));
+                RequestReplyFuture<String, Long, GetCatDTO> secondSendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(secondRecord);
+                try {
+                    GetCatDTO firstGetCatDTO = firstSendAndReceive.get(70, TimeUnit.SECONDS).value();
+                    if (firstGetCatDTO.catDTO == null) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                    GetCatDTO secondGetCatDTO = secondSendAndReceive.get(70, TimeUnit.SECONDS).value();
+                    if (secondGetCatDTO.catDTO == null) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                    if (!userService.checkUserAuthenticated(firstGetCatDTO.catDTO.ownerId, authentication) &&
+                        !userService.checkUserAuthenticated(secondGetCatDTO.catDTO.ownerId, authentication)) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+                }
+            }
+
+            CatsFriendsRequest catsFriendsRequest = new CatsFriendsRequest(firstCatId, secondCatId);
+            ProducerRecord<String, CatsFriendsRequest> record = new ProducerRecord<String, CatsFriendsRequest>("make_friends_request", catsFriendsRequest);
+            record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "make_friends_response".getBytes()));
+            RequestReplyFuture<String, CatsFriendsRequest, CatsFriendsResponse> sendAndReceive = friendsRequestReplyKafkaTemplate.sendAndReceive(record);
+            try {
+                CatsFriendsResponse response = sendAndReceive.get(70, TimeUnit.SECONDS).value();
+                if (response.errorMessage != "") {
+                    if (response.errorMessage.contains("not found")) {
+                        return new ResponseEntity<>(response.errorMessage, HttpStatus.NOT_FOUND);
+                    }
+                    return new ResponseEntity<>(response.errorMessage, HttpStatus.BAD_REQUEST);
+                }
+                return ResponseEntity.status(HttpStatus.OK).build();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+            }
+        });
     }
 
     @PostMapping("/friends/unmake")
     @Operation(summary = "Прекратить дружбу двух котов")
 //    @PreAuthorize("hasRole('ROLE_ADMIN') || @catFriendsRequestChecker.check(#firstCatId, #secondCatId)")
-    public void unmakeFriends(
+    public CompletableFuture<ResponseEntity<?>> unmakeFriends(
             @RequestParam(value = "firstCatId") long firstCatId,
             @RequestParam(value = "secondCatId") long secondCatId) {
-        catsFriendsRequestKafkaTemplate.send("unmake_friends", new CatsFriendsRequest(firstCatId, secondCatId));
+//        catsFriendsRequestKafkaTemplate.send("unmake_friends", new CatsFriendsRequest(firstCatId, secondCatId));
+//        return ResponseEntity.status(HttpStatus.OK).build();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return CompletableFuture.supplyAsync(() -> {
+            // check if authenticated user is owner of at least one cats
+            if (!userService.checkAdmin(authentication)) {
+                ProducerRecord<String, Long> firstRecord = new ProducerRecord<String, Long>("get_cat_request", firstCatId);
+                firstRecord.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_cat_response".getBytes()));
+                RequestReplyFuture<String, Long, GetCatDTO> firstSendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(firstRecord);
+
+                ProducerRecord<String, Long> secondRecord = new ProducerRecord<String, Long>("get_cat_request", secondCatId);
+                secondRecord.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_cat_response".getBytes()));
+                RequestReplyFuture<String, Long, GetCatDTO> secondSendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(secondRecord);
+                try {
+                    GetCatDTO firstGetCatDTO = firstSendAndReceive.get(70, TimeUnit.SECONDS).value();
+                    if (firstGetCatDTO.catDTO == null) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                    GetCatDTO secondGetCatDTO = secondSendAndReceive.get(70, TimeUnit.SECONDS).value();
+                    if (secondGetCatDTO.catDTO == null) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                    if (!userService.checkUserAuthenticated(firstGetCatDTO.catDTO.ownerId, authentication) &&
+                            !userService.checkUserAuthenticated(secondGetCatDTO.catDTO.ownerId, authentication)) {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                } catch (Exception e) {
+                    System.out.println(e.getMessage());
+                    return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+                }
+            }
+
+            CatsFriendsRequest catsFriendsRequest = new CatsFriendsRequest(firstCatId, secondCatId);
+            ProducerRecord<String, CatsFriendsRequest> record = new ProducerRecord<String, CatsFriendsRequest>("unmake_friends_request", catsFriendsRequest);
+            record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "unmake_friends_response".getBytes()));
+            RequestReplyFuture<String, CatsFriendsRequest, CatsFriendsResponse> sendAndReceive = friendsRequestReplyKafkaTemplate.sendAndReceive(record);
+            try {
+                CatsFriendsResponse response = sendAndReceive.get(70, TimeUnit.SECONDS).value();
+                if (response.errorMessage != "") {
+                    if (response.errorMessage.contains("not found")) {
+                        return new ResponseEntity<>(response.errorMessage, HttpStatus.NOT_FOUND);
+                    }
+                    return new ResponseEntity<>(response.errorMessage, HttpStatus.BAD_REQUEST);
+                }
+                return ResponseEntity.status(HttpStatus.OK).build();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+            }
+        });
     }
 }

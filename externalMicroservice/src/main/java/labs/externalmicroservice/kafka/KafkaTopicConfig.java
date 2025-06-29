@@ -64,12 +64,22 @@ public class KafkaTopicConfig {
 
     @Bean
     NewTopic topic12() {
-        return TopicBuilder.name("make_friends").build();
+        return TopicBuilder.name("make_friends_request").build();
+    }
+
+    @Bean
+    NewTopic topic16() {
+        return TopicBuilder.name("make_friends_response").build();
     }
 
     @Bean
     NewTopic topic13() {
-        return TopicBuilder.name("unmake_friends").build();
+        return TopicBuilder.name("unmake_friends_request").build();
+    }
+
+    @Bean
+    NewTopic topic17() {
+        return TopicBuilder.name("unmake_friends_response").build();
     }
 
     @Bean

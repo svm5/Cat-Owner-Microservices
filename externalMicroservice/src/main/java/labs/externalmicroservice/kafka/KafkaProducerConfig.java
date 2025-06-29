@@ -320,25 +320,58 @@ public class KafkaProducerConfig {
         );
         return template;
     }
-    //
+    // all about friends
+
+//    @Bean
+//    public ProducerFactory<String, CatsFriendsRequest> friendsProducerFactory() {
+//        Map<String, Object> configProps = new HashMap<>();
+//        configProps.put(
+//                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+//                bootstrapServers);
+//        configProps.put(
+//                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+//                StringSerializer.class);
+//        configProps.put(
+//                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+//                JsonSerializer.class);
+//        return new DefaultKafkaProducerFactory<>(configProps);
+//    }
+//
+//    @Bean
+//    public KafkaTemplate<String, CatsFriendsRequest> friendsKafkaTemplate() {
+//        return new KafkaTemplate<>(friendsProducerFactory());
+//    }
 
     @Bean
-    public ProducerFactory<String, CatsFriendsRequest> friendsProducerFactory() {
+    public ProducerFactory < String, CatsFriendsRequest > friendsRequestProducerFactory() {
+        return new DefaultKafkaProducerFactory < > (producerConfigs());
+    }
+
+    @Bean
+    public ConsumerFactory < String, CatsFriendsResponse> friendsReplyConsumerFactory() {
         Map<String, Object> configProps = new HashMap<>();
-        configProps.put(
-                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                bootstrapServers);
-        configProps.put(
-                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-                StringSerializer.class);
-        configProps.put(
-                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-                JsonSerializer.class);
-        return new DefaultKafkaProducerFactory<>(configProps);
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        return new DefaultKafkaConsumerFactory<>(configProps);
     }
 
     @Bean
-    public KafkaTemplate<String, CatsFriendsRequest> friendsKafkaTemplate() {
-        return new KafkaTemplate<>(friendsProducerFactory());
+    public KafkaMessageListenerContainer<String, CatsFriendsResponse> friendsReplyListenerContainer() {
+        ContainerProperties containerProperties = new ContainerProperties("make_friends_response", "unmake_friends_response");
+        return new KafkaMessageListenerContainer < > (friendsReplyConsumerFactory(), containerProperties);
     }
+
+    @Bean
+    public ReplyingKafkaTemplate<String, CatsFriendsRequest, CatsFriendsResponse> friendsReplyingKafkaTemplate() {
+        ReplyingKafkaTemplate<String, CatsFriendsRequest, CatsFriendsResponse> template = new ReplyingKafkaTemplate<>(
+                friendsRequestProducerFactory(),
+                friendsReplyListenerContainer()
+        );
+        return template;
+    }
+
+    //
 }

@@ -1,9 +1,6 @@
 package labs.catmicroservice.kafka;
 
-import labs.CatDTO;
-import labs.CatsFriendsRequest;
-import labs.CreateCatDTO;
-import labs.GetCatDTO;
+import labs.*;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -100,21 +97,23 @@ public class KafkaConsumerConfig {
     public KafkaTemplate< String, GetCatDTO > getCatReplyTemplate() {
         return new KafkaTemplate < > (getCatReplyProducerFactory());
     }
-    //
-    @Bean
-    public ConsumerFactory<String, CatsFriendsRequest> catsFriendsConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new JsonDeserializer<>(CatsFriendsRequest.class));
-    }
+    // old friends
 
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, CatsFriendsRequest> catsFriendsKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, CatsFriendsRequest> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(catsFriendsConsumerFactory());
-        return factory;
-    }
+//    @Bean
+//    public ConsumerFactory<String, CatsFriendsRequest> catsFriendsConsumerFactory() {
+//        Map<String, Object> props = new HashMap<>();
+//        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+//        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new JsonDeserializer<>(CatsFriendsRequest.class));
+//    }
+//
+//    @Bean
+//    public ConcurrentKafkaListenerContainerFactory<String, CatsFriendsRequest> catsFriendsKafkaListenerContainerFactory() {
+//        ConcurrentKafkaListenerContainerFactory<String, CatsFriendsRequest> factory =
+//                new ConcurrentKafkaListenerContainerFactory<>();
+//        factory.setConsumerFactory(catsFriendsConsumerFactory());
+//        return factory;
+//    }
+
     //
     @Bean
     public ConsumerFactory< String, Long > requestConsumerFactory() {
@@ -135,4 +134,45 @@ public class KafkaConsumerConfig {
 //        factory.setReplyTemplate(replyTemplate());
         return factory;
     }
+
+    // frineds
+    // ???
+//    @Bean
+//    public ConsumerFactory<String, CatsFriendsRequest> friendsConsumerFactory() {
+//        Map<String, Object> props = new HashMap<>();
+//        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+//        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new JsonDeserializer<>(CatsFriendsRequest.class));
+//    }
+
+    @Bean
+    public ConsumerFactory < String, CatsFriendsRequest > friendsRequestConsumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaListenerContainerFactory < ConcurrentMessageListenerContainer < String, CatsFriendsRequest>> friendsRequestListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory < String, CatsFriendsRequest > factory =
+                new ConcurrentKafkaListenerContainerFactory < > ();
+        factory.setConsumerFactory(friendsRequestConsumerFactory());
+        factory.setReplyTemplate(friendsReplyTemplate());
+        return factory;
+    }
+
+    @Bean
+    public ProducerFactory< String, CatsFriendsResponse> friendsReplyProducerFactory() {
+        return new DefaultKafkaProducerFactory< >(producerConfigs());
+    }
+
+    @Bean
+    public KafkaTemplate < String, CatsFriendsResponse> friendsReplyTemplate() {
+        return new KafkaTemplate < > (friendsReplyProducerFactory());
+    }
+
+    //
 }

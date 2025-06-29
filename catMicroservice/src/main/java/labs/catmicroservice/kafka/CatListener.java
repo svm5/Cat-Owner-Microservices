@@ -49,17 +49,35 @@ public class CatListener {
         }
     }
 
-    @KafkaListener(topics = "make_friends", groupId = "group1",
-            containerFactory = "catsFriendsKafkaListenerContainerFactory")
-    public void processMakeFriends(CatsFriendsRequest catsFriendsRequest) {
+    @KafkaListener(topics = "make_friends_request", groupId = "group1",
+            containerFactory = "friendsRequestListenerContainerFactory")
+    @SendTo
+    public CatsFriendsResponse processMakeFriends(CatsFriendsRequest catsFriendsRequest) {
         System.out.println("Want to make friends");
-        catService.makeFriends(catsFriendsRequest.firstId(), catsFriendsRequest.secondId());
+        String errorMessage = "";
+        try {
+            catService.makeFriends(catsFriendsRequest.firstId(), catsFriendsRequest.secondId());
+        }
+        catch (Exception e) {
+            errorMessage = e.getMessage();
+        }
+
+        return new CatsFriendsResponse(errorMessage);
     }
 
-    @KafkaListener(topics = "unmake_friends", groupId = "group1",
-            containerFactory = "catsFriendsKafkaListenerContainerFactory")
-    public void processUnmakeFriends(CatsFriendsRequest catsFriendsRequest) {
-        catService.unmakeFriends(catsFriendsRequest.firstId(), catsFriendsRequest.secondId());
+    @KafkaListener(topics = "unmake_friends_request", groupId = "group1",
+            containerFactory = "friendsRequestListenerContainerFactory")
+    @SendTo
+    public CatsFriendsResponse processUnmakeFriends(CatsFriendsRequest catsFriendsRequest) {
+        String errorMessage = "";
+        try {
+            catService.unmakeFriends(catsFriendsRequest.firstId(), catsFriendsRequest.secondId());
+        }
+        catch (Exception e) {
+            errorMessage = e.getMessage();
+        }
+
+        return new CatsFriendsResponse(errorMessage);
     }
 
     @KafkaListener(topics = "delete_cat_by_id", groupId = "group1", containerFactory = "requestListenerContainerFactory")
