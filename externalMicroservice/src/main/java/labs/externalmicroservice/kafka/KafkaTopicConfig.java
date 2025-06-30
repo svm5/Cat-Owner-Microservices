@@ -101,4 +101,10 @@ public class KafkaTopicConfig {
     NewTopic topic19() {
         return TopicBuilder.name("get_all_cats_response").build();
     }
+
+    @Bean
+    NewTopic topic20() { return TopicBuilder.name("change_owner_request").build(); }
+
+    @Bean
+    NewTopic topic21() { return TopicBuilder.name("change_owner_response").build(); }
 }

@@ -99,6 +99,21 @@ public class CatListener {
         return new CatsFriendsResponse(errorMessage);
     }
 
+    @KafkaListener(topics = "change_owner_request", groupId = "group1",
+            containerFactory = "changeOwnerRequestListenerContainerFactory")
+    @SendTo
+    public ChangeOwnerResponse processChangeOwner(ChangeOwnerRequest changeOwnerRequest) {
+        String errorMessage = "";
+        try {
+            catService.changeOwner(changeOwnerRequest.catId(), changeOwnerRequest.newOwnerId());
+        }
+        catch (Exception e) {
+            errorMessage = e.getMessage();
+        }
+
+        return new ChangeOwnerResponse(errorMessage);
+    }
+
     @KafkaListener(topics = "delete_cat_by_id", groupId = "group1", containerFactory = "requestListenerContainerFactory")
     public void processDeleteOwnerById(@Payload Long catId) {
         System.out.println("Want to delete cat by id: " + catId);

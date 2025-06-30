@@ -57,6 +57,9 @@ public class CatController {
     private ReplyingKafkaTemplate<String, GetAllCatsRequest, GetAllCatsResponse> getAllCatsRequestReplyKafkaTemplate;
 
     @Autowired
+    private ReplyingKafkaTemplate<String, ChangeOwnerRequest, ChangeOwnerResponse> changeOwnerReplyKafkaTemplate;
+
+    @Autowired
     private UserService userService;
 
     @GetMapping
@@ -344,6 +347,51 @@ public class CatController {
                 System.out.println(e.getMessage());
                 return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
             }
+        });
+    }
+
+    @PatchMapping("change/owner")
+    @Operation(summary = "Смена хозяина кота")
+    public CompletableFuture<ResponseEntity<?>> changeOwner(
+            @RequestParam(value = "catId") Long catId,
+            @RequestParam(value = "newOwnerId") Long newOwnerId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return CompletableFuture.supplyAsync(() -> {
+            // check if cat and owner exists
+            ProducerRecord<String, Long> record = new ProducerRecord<String, Long>("get_cat_request", catId);
+            record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_cat_response".getBytes()));
+            RequestReplyFuture<String, Long, GetCatDTO> sendAndReceive = getCatReplyingKafkaTemplate.sendAndReceive(record);
+            try {
+                GetCatDTO getCatDTO = sendAndReceive.get(70, TimeUnit.SECONDS).value();
+                if (getCatDTO.catDTO == null) {
+                    if (userService.checkAdmin(authentication)) {
+                        return new ResponseEntity<>(getCatDTO.error, HttpStatus.NOT_FOUND);
+                    }
+                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                }
+                if (!userService.checkAdmin(authentication) && !userService.checkUserAuthenticated(getCatDTO.catDTO.ownerId, authentication)) {
+                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                }
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+            }
+
+            // change owner
+            ProducerRecord<String, ChangeOwnerRequest> changeOwnerRecord = new ProducerRecord<>("change_owner_request", new ChangeOwnerRequest(catId, newOwnerId));
+            changeOwnerRecord.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "change_owner_response".getBytes()));
+            RequestReplyFuture<String, ChangeOwnerRequest, ChangeOwnerResponse> changeOwnerSendAndReceive = changeOwnerReplyKafkaTemplate.sendAndReceive(changeOwnerRecord);
+            try {
+                ChangeOwnerResponse response = changeOwnerSendAndReceive.get(70, TimeUnit.SECONDS).value();
+                if (response.errorMessage != "") {
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response.errorMessage);
+                }
+                return ResponseEntity.status(HttpStatus.OK).build();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+                return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
+            }
+
         });
     }
 }

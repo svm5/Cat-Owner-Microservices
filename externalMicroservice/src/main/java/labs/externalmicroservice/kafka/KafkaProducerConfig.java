@@ -406,5 +406,36 @@ public class KafkaProducerConfig {
         return template;
     }
 
+    // change owner
+    @Bean
+    public ProducerFactory < String, ChangeOwnerRequest> changeOwnerRequestProducerFactory() {
+        return new DefaultKafkaProducerFactory < > (producerConfigs());
+    }
+
+    @Bean
+    public ConsumerFactory < String, ChangeOwnerResponse> changeOwnerReplyConsumerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ConsumerConfig.GROUP_ID_CONFIG, "group1");
+        configProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        configProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        configProps.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        return new DefaultKafkaConsumerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaMessageListenerContainer<String, ChangeOwnerResponse> changeOwnerReplyListenerContainer() {
+        ContainerProperties containerProperties = new ContainerProperties("change_owner_response");
+        return new KafkaMessageListenerContainer < > (changeOwnerReplyConsumerFactory(), containerProperties);
+    }
+
+    @Bean
+    public ReplyingKafkaTemplate<String, ChangeOwnerRequest, ChangeOwnerResponse> changeOwnerReplyingKafkaTemplate() {
+        ReplyingKafkaTemplate<String, ChangeOwnerRequest, ChangeOwnerResponse> template = new ReplyingKafkaTemplate<>(
+                changeOwnerRequestProducerFactory(),
+                changeOwnerReplyListenerContainer()
+        );
+        return template;
+    }
     //
 }
