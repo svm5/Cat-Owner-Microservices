@@ -61,12 +61,18 @@ public class UserController {
     @PostMapping("/signin")
 //    @Async("threadPoolTaskExecutor")
 //    @Async
-    @Async("abcTaskExecutor")
+//    @Async("abcTaskExecutor")
     public CompletableFuture<ResponseEntity<?>> loginUser(@Valid @RequestBody SignInRequest signInRequest) {
         System.out.println("!!!!! 1");
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(signInRequest.username, signInRequest.password)
-        );
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(signInRequest.username, signInRequest.password)
+            );
+        } catch (Exception e) {
+            return CompletableFuture.completedFuture(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage()));
+        }
+
         System.out.println("!!!!! 2");
         SecurityContextHolder.getContext().setAuthentication(authentication);
         System.out.println("!!!!! 3");
@@ -80,6 +86,7 @@ public class UserController {
     @PostMapping("/signout")
     public ResponseEntity<?> logoutUser() {
         ResponseCookie jwtCookie = jwtService.getCleanJwtCookie();
+        SecurityContextHolder.getContext().setAuthentication(null);
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString()).body("Signed out!");
     }
 }

@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import labs.*;
-import labs.externalmicroservice.security.SpringUtils;
+//import labs.externalmicroservice.security.SpringUtils;
 import labs.externalmicroservice.service.UserService;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.internals.RecordHeader;
@@ -67,53 +67,8 @@ public class CatController {
     @Autowired
     private UserService userService;
 
-    @GetMapping("/test")
-    public DeferredResult<ResponseEntity<?>> testMethodWhy() {
-        System.out.println("TEST1" + SecurityContextHolder.getContext().getAuthentication());
-        DeferredResult<ResponseEntity<?>> result = new DeferredResult<>();
-        SecurityContext context = SecurityContextHolder.getContext(); // Захватываем контекст
-
-        CompletableFuture.runAsync(() -> {
-            SecurityContextHolder.setContext(context); // Устанавливаем в асинхронном потоке
-            try {
-                // Теперь аутентификация доступна
-                String username = SecurityContextHolder.getContext().getAuthentication().getName();
-                result.setResult(ResponseEntity.ok()
-                        .header("X-Authenticated-User", context.getAuthentication().getName())
-                        .build());
-            } finally {
-                SecurityContextHolder.clearContext(); // Очищаем контекст (опционально)
-            }
-        }, SpringUtils.getBean("taskExecutor", Executor.class));
-
-        return result;
-    }
-
-    @GetMapping("/test2")
-    public ResponseEntity<?> testMethod() {
-        System.out.println("TEST2 " + SecurityContextHolder.getContext().getAuthentication());
-        return new ResponseEntity<>(HttpStatus.OK);
-    }
-
-    @GetMapping("/test3")
-//    @Async("threadPoolTaskExecutor")
-    @Async("abcTaskExecutor")
-    public CompletableFuture<ResponseEntity<?>> testMethodThree() {
-        System.out.println("TEST3" + SecurityContextHolder.getContext().getAuthentication());
-        return CompletableFuture.supplyAsync(() -> {
-            System.out.println("TEST3 in supply async" + SecurityContextHolder.getContext().getAuthentication());
-//            SecurityContextHolder.setContext(context); // Устанавливаем в асинхронном потоке
-                // Теперь аутентификация доступна
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            return ResponseEntity.ok()
-                    .header("X-Authenticated-User", username)
-                    .build();
-        }, SpringUtils.getBean("abcTaskExecutor", Executor.class));
-    }
-
     @GetMapping
     @Operation(summary = "Получение всех котов")
-    @Async("threadPoolTaskExecutor")
     public CompletableFuture<ResponseEntity<List<CatDTO>>> getAllCats(
             @RequestParam(name = "name", required = false) String name,
             @RequestParam(name = "birthday", required = false) String birthday,

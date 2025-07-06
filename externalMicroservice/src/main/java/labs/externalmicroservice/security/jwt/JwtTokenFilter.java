@@ -35,11 +35,6 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         System.out.println("In doFilterInternal");
         try {
-//            if (request.getDispatcherType() == DispatcherType.ASYNC) {
-//                filterChain.doFilter(request, response);
-//                return;
-//            }
-
             String jwt = jwtService.getJwtTokenFromCookies(request);
             if (jwt != null && jwtService.validateJwtToken(jwt)) {
                 String username = jwtService.getUsernameFromJwtToken(jwt);
