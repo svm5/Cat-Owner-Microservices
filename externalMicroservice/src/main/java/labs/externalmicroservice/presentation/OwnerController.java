@@ -1,30 +1,23 @@
 package labs.externalmicroservice.presentation;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import labs.*;
+import labs.externalmicroservice.service.OwnerService;
 import labs.externalmicroservice.service.UserService;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.internals.RecordHeader;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
-import org.springframework.kafka.requestreply.RequestReplyFuture;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/owners")
@@ -32,40 +25,26 @@ import java.util.concurrent.TimeUnit;
 @SecurityRequirement(name = "basicAuth")
 public class OwnerController {
     @Autowired
-    private KafkaTemplate<String, String> kafkaTemplate;
-
-    @Autowired
-    private KafkaTemplate<String, CreateOwnerDTO> createOwnerKafkaTemplate;
-
-    @Autowired
-    private KafkaTemplate<String, Long> stringLongKafkaTemplate;
-
-    @Autowired
-    private ReplyingKafkaTemplate < String, Long, GetOwnerDTO > requestReplyKafkaTemplate;
-
-    @Autowired
-    private ReplyingKafkaTemplate<String, GetAllOwnersRequest, GetAllOwnersResponse> getAllOwnersKafkaTemplate;
-
-    @Autowired
     private UserService userService;
-//    @PostMapping()
-//    public void test(CreateOwnerDTO createOwnerDTO) {
-//        createOwnerKafkaTemplate.send("create_owner", createOwnerDTO);
-//    }
+
+    @Autowired
+    OwnerService ownerService;
 
     @GetMapping("/{id}")
     @Operation(summary = "Получение владельца по id")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200"),
+            @ApiResponse(responseCode = "403", description = "Cannot access", content = { @Content(schema = @Schema()) }),
+            @ApiResponse(responseCode = "404", description = "Owner not found", content = { @Content(schema = @Schema()) })
+    })
     public CompletableFuture<ResponseEntity<OwnerDTO>> getOwner(@PathVariable Long id) {
         if (!userService.checkUserAuthenticated(id) && !userService.checkAdmin()) {
             return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.FORBIDDEN));
         }
 
         return CompletableFuture.supplyAsync(() -> {
-            ProducerRecord<String, Long> record = new ProducerRecord<String, Long>("get_owner_by_id_request", id);
-            record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_owner_by_id_response".getBytes()));
-            RequestReplyFuture<String, Long, GetOwnerDTO> sendAndReceive = requestReplyKafkaTemplate.sendAndReceive(record);
             try {
-                GetOwnerDTO result = sendAndReceive.get(70, TimeUnit.SECONDS).value();
+                GetOwnerDTO result = ownerService.getOwner(id);
                 if (result.ownerDTO == null) {
                     return new ResponseEntity<>(HttpStatus.NOT_FOUND);
                 }
@@ -80,6 +59,10 @@ public class OwnerController {
 
     @GetMapping
     @Operation(summary = "Получение всех владельцев")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200"),
+            @ApiResponse(responseCode = "403", description = "Cannot access", content = { @Content(schema = @Schema()) })
+    })
     public CompletableFuture<ResponseEntity<List<OwnerDTO>>> getAllOwners(
             @RequestParam(name = "name", required = false) String name,
             @RequestParam(name = "birthday", required = false) String birthday,
@@ -102,12 +85,8 @@ public class OwnerController {
                 .build();
 
         return CompletableFuture.supplyAsync(() -> {
-            ProducerRecord<String, GetAllOwnersRequest> record = new ProducerRecord<String, GetAllOwnersRequest>("get_all_owners_request", getAllOwnersRequest);
-            record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, "get_all_owners_response".getBytes()))
-                            .add(new RecordHeader(KafkaHeaders.CORRELATION_ID, UUID.randomUUID().toString().getBytes()));
-            RequestReplyFuture<String, GetAllOwnersRequest, GetAllOwnersResponse> sendAndReceive = getAllOwnersKafkaTemplate.sendAndReceive(record);
             try {
-                return new ResponseEntity<>(sendAndReceive.get(70, TimeUnit.SECONDS).value().owners, HttpStatus.OK);
+                return new ResponseEntity<>(ownerService.getAllOwners(getAllOwnersRequest).owners, HttpStatus.OK);
             } catch (Exception e) {
                 System.out.println("!!!Error " + e.getMessage());
                 return ResponseEntity.status(HttpStatus.GATEWAY_TIMEOUT).build();
@@ -118,6 +97,10 @@ public class OwnerController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Удаление конкретного владельца")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", content = { @Content(schema = @Schema()) }),
+            @ApiResponse(responseCode = "403", description = "Cannot access", content = { @Content(schema = @Schema()) })
+    })
     public CompletableFuture<ResponseEntity<Object>> deleteOwner(@PathVariable Long id) {
         if (!userService.checkUserAuthenticated(id) && !userService.checkAdmin()) {
             return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.FORBIDDEN));
@@ -125,9 +108,9 @@ public class OwnerController {
         return CompletableFuture.supplyAsync(() -> {
                 try {
                     // Отправляем и ждем подтверждения
-                    SendResult<String, Long> result = stringLongKafkaTemplate.send("delete_owner_by_id", id).get();
-                    return ResponseEntity.ok().build();
-                } catch (InterruptedException | ExecutionException e) {
+                    ownerService.deleteOwnerById(id);
+                    return ResponseEntity.noContent().build();
+                } catch (Exception e) {
                     throw new RuntimeException("Error", e);
                 }
             })
@@ -138,12 +121,16 @@ public class OwnerController {
 
     @DeleteMapping
     @Operation(summary = "Удаление всех владельцев")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", content = { @Content(schema = @Schema()) }),
+            @ApiResponse(responseCode = "403", description = "Cannot access", content = { @Content(schema = @Schema()) })
+    })
     public ResponseEntity<Void> deleteAllOwners() {
         if (!userService.checkAdmin()) {
             return new ResponseEntity<>(HttpStatus.FORBIDDEN);
         }
-        kafkaTemplate.send("delete_all_owners", "delete");
+        ownerService.deleteAllOwners();
+
         return ResponseEntity.noContent().build();
     }
 }
-
