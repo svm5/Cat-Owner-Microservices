@@ -10,9 +10,9 @@ Pet project - Async REST API to interact with owners and their cats.
 * Kafka - message broker. Communication between 3 microservices. One microservice is external, receives requests, sends messages through the broker to two other microservices (for logic related to cats and owners), receives responses, and sends them in the required format. Each microservice has its own database
 * Testing
   * integration tests using Testcontainers for repositories
-  * Juint5 and Mockito for services unit tests
+  * JUint5 and Mockito for services unit tests
   * mockMvc for controllers tests
-* Docker, Docker Compose, Flyway: start database containers, broker, microservices, and apply migrations.
+* Docker, Docker Compose, Flyway: start database containers, broker(Kafka), microservices, pgAdmin, Kafka UI, Zookeeper, and apply migrations.
 * Swagger: documentation
 * CI CD: run tests
 
@@ -64,7 +64,7 @@ User and Owner are connected by a one-to-one relationship
   * delete
   * delete all cats (only for admin)
 
-TODO
+### TODO
 
 * Store and use refresh token
 
