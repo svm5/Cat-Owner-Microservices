@@ -1,0 +1,203 @@
+services:
+  postgres_users:
+    image: postgres:14
+    hostname: postgres
+    ports:
+      - 7433:5432
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_DB=$POSTGRES_DB
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+    volumes:
+      - ./docker/data_users:/var/lib/postgresql/data
+      - ./docker/init_users.sh:/docker-entrypoint-initdb.d/init.sh
+  postgres_owners:
+    image: postgres:14
+    hostname: postgres
+    ports:
+      - 7434:5432
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_DB=$POSTGRES_DB
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+    volumes:
+      - ./docker/data_owners:/var/lib/postgresql/data
+      - ./docker/init_owners.sh:/docker-entrypoint-initdb.d/init.sh
+  postgres_cats:
+    image: postgres:14
+    hostname: postgres
+    ports:
+      - 7435:5432
+    environment:
+      - POSTGRES_USER=$POSTGRES_USER
+      - POSTGRES_DB=$POSTGRES_DB
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+    volumes:
+      - ./docker/data_cats:/var/lib/postgresql/data
+      - ./docker/init_cats.sh:/docker-entrypoint-initdb.d/init.sh
+  flyway_users:
+    image: flyway/flyway
+    volumes:
+      - ./docker/migrations/users:/flyway/sql
+      - ./docker/migrations/scripts/run_user_migrations.sh:/flyway/run_user_migrations.sh
+    # && run_user_migrations.sh", "--", "flyway"
+#    entrypoint: [ "chmod", "700", "run_user_migrations.sh", "||", "run_user_migrations.sh", "--", "flyway" ]
+#    command: ["run_user_migrations.sh"]
+    entrypoint: ["/flyway/run_user_migrations.sh", "--", "flyway", "&&", "exit 0"]
+    environment:
+      - USER=$POSTGRES_USER
+      - PASSWORD=$POSTGRES_PASSWORD
+      - HOST=$HOST_USERS
+      - PORT=$PORT
+    depends_on:
+      - postgres_users
+  flyway_owners:
+    image: flyway/flyway
+    volumes:
+      - ./docker/migrations/owners:/flyway/sql
+      - ./docker/migrations/scripts/run_owner_migrations.sh:/flyway/run_owner_migrations.sh
+    entrypoint: [ "/flyway/run_owner_migrations.sh", "--", "flyway" ]
+    environment:
+      - USER=$POSTGRES_USER
+      - PASSWORD=$POSTGRES_PASSWORD
+      - HOST=$HOST_OWNERS
+      - PORT=$PORT
+    depends_on:
+      - postgres_owners
+  flyway_cats:
+    image: flyway/flyway
+    volumes:
+      - ./docker/migrations/cats:/flyway/sql
+      - ./docker/migrations/scripts/run_cat_migrations.sh:/flyway/run_cat_migrations.sh
+    entrypoint: ["/flyway/run_cat_migrations.sh", "--", "flyway"]
+    environment:
+      - USER=$POSTGRES_USER
+      - PASSWORD=$POSTGRES_PASSWORD
+      - HOST=$HOST_CATS
+      - PORT=$PORT
+    depends_on:
+      - postgres_cats
+  pg_admin:
+    depends_on:
+      - postgres_users
+      - postgres_owners
+      - postgres_cats
+    container_name: pg_admin
+    image: dpage/pgadmin4:latest
+    hostname: pg_admin
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      - PGADMIN_DEFAULT_PASSWORD=postgres
+      - PGADMIN_DEFAULT_EMAIL=postgres@postgres.com
+      - PGADMIN_CONFIG_SERVER_MODE=False
+      - PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False
+  external_service:
+    build:
+      context: externalMicroservice
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres_users
+  owner_service:
+    build:
+      context: ownerMicroservice
+      dockerfile: Dockerfile
+    ports:
+      - "8079:8079"
+    depends_on:
+      - postgres_owners
+  cat_service:
+    build:
+      context: catMicroservice
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres_cats
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.2.1
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+  kafka:
+    image: confluentinc/cp-server:7.2.1
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+#      - "9997:9997"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_CONFLUENT_BALANCER_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9997
+      KAFKA_JMX_HOSTNAME: kafka
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8083:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: true
+
+#  kafka:
+#    image: apache/kafka:latest
+#    container_name: kafka
+#    ports:
+#      - "9092:9092"
+#    environment:
+#      # Configure listeners for both docker and host communication
+#      KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+#      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
+#      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
+#
+#      # Settings required for KRaft mode
+#      KAFKA_NODE_ID: 1
+#      KAFKA_PROCESS_ROLES: broker,controller
+#      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+#      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
+#
+#      # Listener to use for broker-to-broker communication
+#      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+#
+#      # Required for a single node cluster
+#      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#  #      KAFKA_NODE_ID: 1
+#  #      KAFKA_PROCESS_ROLES: broker,controller
+#  #      KAFKA_LISTENERS: PLAINTEXT://localhost:9092,CONTROLLER://localhost:9093
+#  #      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+#  #      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+#  #      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+#  #      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+#  #      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+#  #      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+#  #      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+#  #      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+#  #      KAFKA_NUM_PARTITIONS: 3
+#
+#  kafka-ui:
+#    image: kafbat/kafka-ui:latest
+#    ports:
+#      - "8083:8080"
+#    environment:
+#      DYNAMIC_CONFIG_ENABLED: "true"
+#      KAFKA_CLUSTERS_0_NAME: local
+#      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+#    depends_on:
+#      - kafka
